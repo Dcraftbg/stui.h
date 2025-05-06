@@ -136,7 +136,7 @@ stui_term_flag_t stui_term_get_flags(void) {
 #else
     // Assume Unix platform
     struct termios term;
-    tcgetattr(fileno(stdin), &term);
+    tcgetattr(STDIN_FILENO, &term);
     if(term.c_lflag & ECHO)      flags |= STUI_TERM_FLAG_ECHO;
     if(!(term.c_lflag & ICANON)) flags |= STUI_TERM_FLAG_INSTANT;
 #endif
@@ -153,11 +153,11 @@ void stui_term_set_flags(stui_term_flag_t flags) {
 #else
     // Assume Unix platform
     struct termios term;
-    tcgetattr(fileno(stdin), &term);
+    tcgetattr(STDIN_FILENO, &term);
     term.c_lflag &= ~(ECHO | ICANON);
     if(flags & STUI_TERM_FLAG_ECHO) term.c_lflag |= ECHO;
     if(!(flags & STUI_TERM_FLAG_INSTANT)) term.c_lflag |= ICANON;
-    tcsetattr(fileno(stdin), TCSANOW, &term);
+    tcsetattr(STDIN_FILENO, TCSANOW, &term);
 #endif
 }
 #endif
