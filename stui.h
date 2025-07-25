@@ -11,7 +11,19 @@
 
 // CORE:
 void stui_setsize(size_t x, size_t y);
-void stui_putchar(size_t x, size_t y, int c);
+enum {
+    STUI_COLOR_KIND_RST,
+    STUI_COLOR_KIND_RGB,
+    STUI_COLOR_KIND_COUNT,
+};
+#define STUI_COLOR_KIND_SHIFT 24
+#define STUI_RGB(clr) ((STUI_COLOR_KIND_RGB << STUI_COLOR_KIND_SHIFT) | ((clr) & 0xFFFFFF))
+#define STUI_GET_COLOR_KIND(color) ((color) >> STUI_COLOR_KIND_SHIFT)
+
+void stui_putchar_color(size_t x, size_t, int c, uint32_t fg, uint32_t bg);
+static void stui_putchar(size_t x, size_t y, int c) {
+    stui_putchar_color(x, y, c, 0, 0);
+}
 void stui_refresh(void);
 // Raw API
 void stui_goto(size_t x, size_t y);
@@ -23,7 +35,6 @@ void stui_clear(void);
 // Instant or non-canonical mode
 #define STUI_TERM_FLAG_INSTANT (1 << 1)
 typedef uint8_t stui_term_flag_t;
-
 
 void stui_term_get_size(size_t *w, size_t *h);
 stui_term_flag_t stui_term_get_flags(void);
@@ -42,39 +53,91 @@ static void stui_term_disable_instant(void) {
     stui_term_set_flags(stui_term_get_flags() & ~STUI_TERM_FLAG_INSTANT);
 }
 
+// UI thingies
+void stui_window_border(size_t x, size_t y, size_t w, size_t h, int tb, int lr, int corner);
+
+
 #ifdef STUI_IMPLEMENTATION
 #define STUI_BUFFER_COUNT 2
 static uint8_t _stui_back_buffer = 0; 
-static char* _stui_buffers[STUI_BUFFER_COUNT] = { 0 };
+typedef struct {
+    uint8_t code;
+#ifndef STUI_NO_COLORS
+    uint32_t fg;
+    uint32_t bg;
+#endif
+} _StuiCodepoint;
+static _StuiCodepoint* _stui_buffers[STUI_BUFFER_COUNT] = { 0 };
 static size_t _stui_width = 0, _stui_height = 0;
 void stui_setsize(size_t x, size_t y) {
     _stui_width = x;
     _stui_height = y;
-    size_t n = x*y*sizeof(_stui_buffers[0]);
     for(size_t i = 0; i < STUI_BUFFER_COUNT; ++i) {
-        _stui_buffers[i] = STUI_REALLOC(_stui_buffers[i], n);
+        _stui_buffers[i] = STUI_REALLOC(_stui_buffers[i], x*y*sizeof(*_stui_buffers[0]));
         assert(_stui_buffers[i]);
-        memset(_stui_buffers[i], ' ', n);
+        for(size_t j = 0; j < x*y; ++j) {
+            _stui_buffers[i][j].code = ' ';
+            _stui_buffers[i][j].fg = _stui_buffers[i][j].bg = 0;
+        }
     }
 }
-void stui_putchar(size_t x, size_t y, int c) {
-    char* buffer = _stui_buffers[_stui_back_buffer];
+void stui_putchar_color(size_t x, size_t y, int c, uint32_t fg, uint32_t bg) {
+    _StuiCodepoint* buffer = _stui_buffers[_stui_back_buffer];
     assert(x < _stui_width);
     assert(y < _stui_height);
-    buffer[y * _stui_width + x] = c;
+    buffer[y * _stui_width + x].code = c;
+#ifdef STUI_NO_COLORS
+    (void)fg;
+    (void)bg;
+#else
+    buffer[y * _stui_width + x].fg = fg;
+    buffer[y * _stui_width + x].bg = bg;
+#endif
+}
+
+static void _stui_set_color(uint32_t color, uint8_t off) {
+    uint8_t kind = STUI_GET_COLOR_KIND(color);
+    assert(kind < STUI_COLOR_KIND_COUNT); 
+    static_assert(STUI_COLOR_KIND_COUNT == 2, "Update color kinds");
+    switch(kind) {
+    case STUI_COLOR_KIND_RST:
+        printf("\033[%dm", 39 + off);
+        break;
+    case STUI_COLOR_KIND_RGB:
+        printf("\033[%d;2;%d;%d;%dm", 38 + off, (color >> 16) & 0xFF, (color >> 8) & 0xFF, (color) & 0xFF);
+        break;
+    }
 }
 void stui_refresh(void) {
-    char* back  = _stui_buffers[_stui_back_buffer];
-    char* front = _stui_buffers[(_stui_back_buffer + 1) % STUI_BUFFER_COUNT];
+    _StuiCodepoint* back  = _stui_buffers[_stui_back_buffer];
+    _StuiCodepoint* front = _stui_buffers[(_stui_back_buffer + 1) % STUI_BUFFER_COUNT];
+    uint32_t fg = 0, bg = 0;
+    printf("\033[0m");
     for(size_t i = 0; i < _stui_width*_stui_height; ++i) {
-        if(back[i] != front[i]) {
+        if(back[i].code != front[i].code 
+        #ifndef STUI_NO_COLORS
+            || back[i].fg != front[i].fg 
+            || back[i].bg != front[i].bg
+        #endif
+        ) {
+#ifndef STUI_NO_COLORS
+            if(back[i].fg != fg) {
+                _stui_set_color(back[i].fg, 0);
+            }
+            if(back[i].bg != bg) {
+                _stui_set_color(back[i].bg, 10);
+            }
+            fg = back[i].fg;
+            bg = back[i].bg;
+#endif
             size_t x = i % _stui_width, y = i / _stui_width;
             stui_goto(x, y);
-            printf("%c", back[i]);
-            fflush(stdout);
+            printf("%c", back[i].code);
             front[i] = back[i];
         }
     }
+    printf("\033[0m");
+    fflush(stdout);
     _stui_back_buffer = (_stui_back_buffer + 1) % STUI_BUFFER_COUNT;
 }
 
