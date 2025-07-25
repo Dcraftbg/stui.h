@@ -108,6 +108,8 @@ void stui_window_border(size_t x, size_t y, size_t w, size_t h, int tb, int lr, 
 // Terminal API
 #ifdef _MINOS
 # include <minos/tty/tty.h>
+#elif _WIN32
+# include <Windows.h>
 #else
 # include <termios.h>
 # include <unistd.h>
@@ -119,6 +121,12 @@ void stui_term_get_size(size_t *w, size_t *h) {
 #ifdef _MINOS
     *w = 80;
     *h = 24;
+#elif _WIN32
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    GetConsoleScreenBufferInfo(hConsole, &csbi);
+    *w = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+    *h = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
 #else
     struct winsize winsz;
     ioctl(0, TIOCGWINSZ, &winsz);
@@ -133,6 +141,12 @@ stui_term_flag_t stui_term_get_flags(void) {
     tty_get_flags(fileno(stdin), &tty_flags);
     if(tty_flags & TTY_ECHO)    flags |= STUI_TERM_FLAG_ECHO;
     if(tty_flags & TTY_INSTANT) flags |= STUI_TERM_FLAG_INSTANT;
+#elif _WIN32
+    HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+    DWORD mode;
+    GetConsoleMode(hStdin, &mode);
+    if (mode & ENABLE_ECHO_INPUT) flags |= STUI_TERM_FLAG_ECHO;
+    if (!(mode & ENABLE_LINE_INPUT)) flags |= STUI_TERM_FLAG_INSTANT;
 #else
     // Assume Unix platform
     struct termios term;
@@ -150,6 +164,16 @@ void stui_term_set_flags(stui_term_flag_t flags) {
     if(flags & STUI_TERM_FLAG_ECHO) tty_flags |= TTY_ECHO;
     if(flags & STUI_TERM_FLAG_INSTANT) tty_flags |= TTY_INSTANT;
     tty_set_flags(fileno(stdin), tty_flags);
+#elif _WIN32
+    HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+    DWORD mode;
+    GetConsoleMode(hStdin, &mode);
+    mode &= ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT);
+    if (flags & STUI_TERM_FLAG_ECHO) 
+        mode |= ENABLE_ECHO_INPUT;
+    if (!(flags & STUI_TERM_FLAG_INSTANT)) 
+        mode |= ENABLE_LINE_INPUT;
+    SetConsoleMode(hStdin, mode);
 #else
     // Assume Unix platform
     struct termios term;
