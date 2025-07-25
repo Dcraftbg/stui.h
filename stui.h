@@ -77,7 +77,9 @@ void stui_setsize(size_t x, size_t y) {
         assert(_stui_buffers[i]);
         for(size_t j = 0; j < x*y; ++j) {
             _stui_buffers[i][j].code = ' ';
+#ifndef STUI_NO_COLORS
             _stui_buffers[i][j].fg = _stui_buffers[i][j].bg = 0;
+#endif
         }
     }
 }
