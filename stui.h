@@ -25,6 +25,18 @@ static void stui_putchar(size_t x, size_t y, int c) {
     stui_putchar_color(x, y, c, 0, 0);
 }
 void stui_refresh(void);
+// Input API
+#define STUI_KEY_ESC 0x1B
+#define _STUI_ARROW(chr) (0xFFFFFFFE - ((chr)-'A')) 
+#define STUI_KEY_UP    _STUI_ARROW('A')
+#define STUI_KEY_DOWN  _STUI_ARROW('B')
+#define STUI_KEY_RIGHT _STUI_ARROW('C')
+#define STUI_KEY_LEFT  _STUI_ARROW('D')
+char stui_peak_byte(size_t n);
+char stui_eat_byte(void);
+void stui_skip_n_bytes(size_t n);
+int stui_get_key(void);
+
 // Raw API
 void stui_goto(size_t x, size_t y);
 void stui_clear(void);
@@ -58,6 +70,55 @@ void stui_window_border(size_t x, size_t y, size_t w, size_t h, int tb, int lr, 
 
 
 #ifdef STUI_IMPLEMENTATION
+// Input API
+#define STUI_INPUT_RING_BUFFER_CAP 8
+static char stui_input_buf[STUI_INPUT_RING_BUFFER_CAP];
+static uint8_t stui_input_head = 0, stui_input_tail = 0;
+char stui_peak_byte(size_t n) {
+    if(stui_input_tail + n >= stui_input_head) return 0;
+    return stui_input_buf[stui_input_tail + n];
+}
+char stui_eat_byte(void) {
+    if(stui_input_tail == stui_input_head) {
+        stui_input_tail = stui_input_head = 0;
+        int n = read(STDIN_FILENO, stui_input_buf, STUI_INPUT_RING_BUFFER_CAP);
+        if(n <= 0) return -1;
+        stui_input_head += n;
+    }
+    return stui_input_buf[stui_input_tail++];
+}
+void stui_skip_n_bytes(size_t n) {
+    stui_input_tail += n; 
+}
+int stui_get_key(void) {
+    int c = stui_eat_byte();
+    switch(c) {
+    case STUI_KEY_ESC: {
+        char seq[3];
+        if(!(seq[0] = stui_peak_byte(0))) return c;
+        if(!(seq[1] = stui_peak_byte(1))) return c;
+        switch(seq[0]) {
+        case '[':
+            // TODO: ~ sequences
+            if(seq[1] == '~') return c; 
+            switch(seq[1]) {
+            case 'A':
+            case 'B':
+            case 'C':
+            case 'D':
+                stui_skip_n_bytes(2);
+                c = _STUI_ARROW(seq[1]);
+                break;
+            }
+            break;
+        }
+    } break;
+    }
+    return c;
+}
+
+
+
 #define STUI_BUFFER_COUNT 2
 static uint8_t _stui_back_buffer = 0; 
 typedef struct {
