@@ -74,6 +74,11 @@ void stui_window_border(size_t x, size_t y, size_t w, size_t h, int tb, int lr, 
 #define STUI_INPUT_RING_BUFFER_CAP 8
 static char stui_input_buf[STUI_INPUT_RING_BUFFER_CAP];
 static uint8_t stui_input_head = 0, stui_input_tail = 0;
+// input API
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
 char stui_peak_byte(size_t n) {
     if(stui_input_tail + n >= stui_input_head) return 0;
     return stui_input_buf[stui_input_tail + n];
@@ -121,8 +126,14 @@ int stui_get_key(void) {
 
 #define STUI_BUFFER_COUNT 2
 static uint8_t _stui_back_buffer = 0; 
+
+#ifdef STUI_NO_UNICODE
+typedef uint8_t _stui_char_t;
+#else
+typedef uint32_t _stui_char_t;
+#endif
 typedef struct {
-    uint8_t code;
+    _stui_char_t code;
 #ifndef STUI_NO_COLORS
     uint32_t fg;
     uint32_t bg;
@@ -171,6 +182,22 @@ static void _stui_set_color(uint32_t color, uint8_t off) {
         break;
     }
 }
+static void _stui_unicode_to_utf8(uint32_t codepoint, char* buf) {
+    if(codepoint <= 0x7F) buf[0] = (char)codepoint;
+    else if(codepoint <= 0x7FF) {
+        buf[0] = (char)((codepoint >> 6) | 0xC0);
+        buf[1] = (char)((codepoint & 0x3F) | 0x80);
+    } else if(codepoint <= 0xFFFF) {
+        buf[0] = (char)((codepoint >> 12) | 0xE0);
+        buf[1] = (char)(((codepoint >> 6) & 0x3F) | 0x80);
+        buf[2] = (char)((codepoint & 0x3F) | 0x80);
+    } else if(codepoint <= 0x10FFFF) {
+        buf[0] = (char)((codepoint >> 18) | 0xF0);
+        buf[1] = (char)(((codepoint >> 12) & 0x3F) | 0x80);
+        buf[2] = (char)(((codepoint >> 6) & 0x3F) | 0x80);
+        buf[3] = (char)((codepoint & 0x3F) | 0x80);
+    }
+}
 void stui_refresh(void) {
     _StuiCodepoint* back  = _stui_buffers[_stui_back_buffer];
     _StuiCodepoint* front = _stui_buffers[(_stui_back_buffer + 1) % STUI_BUFFER_COUNT];
@@ -195,7 +222,13 @@ void stui_refresh(void) {
 #endif
             size_t x = i % _stui_width, y = i / _stui_width;
             stui_goto(x, y);
+#ifdef STUI_NO_UNICODE
             printf("%c", back[i].code);
+#else
+            char utf8_buf[8] = { 0 };
+            _stui_unicode_to_utf8(back[i].code, utf8_buf);
+            printf("%s", utf8_buf);
+#endif
             front[i] = back[i];
         }
     }
