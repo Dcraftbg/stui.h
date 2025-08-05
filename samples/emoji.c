@@ -4,6 +4,7 @@
 void character(size_t y, const char* name, int code) {
     size_t x = 0;
     while(*name) stui_putchar(x++, y, *name++);
+    stui_putchar(x++, y, ' ');
     stui_putchar(x++, y, '-');
     stui_putchar(x++, y, '>');
     stui_putchar(x++, y, ' ');
