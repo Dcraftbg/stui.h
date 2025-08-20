@@ -18,6 +18,7 @@
 
 // CORE:
 void stui_setsize(size_t x, size_t y);
+void stui_getsize(size_t *x, size_t *y);
 enum {
     STUI_COLOR_KIND_RST,
     STUI_COLOR_KIND_RGB,
@@ -84,6 +85,9 @@ static uint8_t stui_input_head = 0, stui_input_tail = 0;
 // input API
 #ifndef _WIN32
 #include <unistd.h>
+#endif
+#ifdef _MINOS
+#include <minos/sysstd.h>
 #endif
 
 char stui_peak_byte(size_t n) {
@@ -162,6 +166,10 @@ void stui_setsize(size_t x, size_t y) {
         }
     }
 }
+void stui_getsize(size_t *x, size_t *y) {
+    *x = _stui_width;
+    *y = _stui_height;
+}
 void stui_putchar_color(size_t x, size_t y, int c, uint32_t fg, uint32_t bg) {
     _StuiCodepoint* buffer = _stui_buffers[_stui_back_buffer];
     assert(x < _stui_width);
@@ -208,7 +216,9 @@ static void _stui_unicode_to_utf8(uint32_t codepoint, char* buf) {
 void stui_refresh(void) {
     _StuiCodepoint* back  = _stui_buffers[_stui_back_buffer];
     _StuiCodepoint* front = _stui_buffers[(_stui_back_buffer + 1) % STUI_BUFFER_COUNT];
+#ifndef STUI_NO_COLORS
     uint32_t fg = 0, bg = 0;
+#endif
     printf("\033[0m");
     for(size_t i = 0; i < _stui_width*_stui_height; ++i) {
         if(back[i].code != front[i].code 
