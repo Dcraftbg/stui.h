@@ -278,8 +278,14 @@ void stui_window_border(size_t x, size_t y, size_t w, size_t h, int tb, int lr, 
 
 void stui_term_get_size(size_t *w, size_t *h) {
 #ifdef _MINOS
-    *w = 80;
-    *h = 24;
+    TtySize size = { 0 };
+    if(tty_get_size(0, &size) < 0) {
+        *w = 80;
+        *h = 24;
+        return;
+    }
+    *w = size.width;
+    *h = size.height;
 #elif _WIN32
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     CONSOLE_SCREEN_BUFFER_INFO csbi;
