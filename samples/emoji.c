@@ -16,9 +16,12 @@ int main(void) {
     stui_setsize(w, h);
     stui_clear();
 
+    if(w < 16 || h < 3) {
+        printf("Too small %zux%zu!\n", w, h);
+        return 0;
+    }
     character(0, "Party", 0x1F973);
     character(1, "Sunglasses", 0x1F60E);
     character(2, "Melting", 0x1FAE0);
     stui_refresh();
-    getchar();
 }

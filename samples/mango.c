@@ -15,5 +15,4 @@ int main(void) {
         }
     }
     stui_refresh();
-    getchar();
 }
