@@ -1,0 +1,29 @@
+name: Test Samples
+
+name: Test samples
+on: [push pull_requests]
+jobs:
+  test-emoji:
+    runs-on: ubuntu-latest
+    steps:
+      uses: actions/checkout@v2
+      run: sudo apt-get install -y build-essentials
+      run: gcc -o emoji samples/emoji.c
+      run: ./emoji
+
+  test-mango:
+    runs-on: ubuntu-latest
+    steps:
+      uses: actions/checkout@v2
+      run: sudo apt-get install -y build-essentials
+      run: gcc -o mango samples/mango.c
+      run: ./mango
+
+  test-stui_img:
+    runs-on: ubuntu-latest
+    steps:
+      uses: actions/checkout@v2
+      run: sudo apt-get install -y build-essentials
+      run: cd samples/stui_img
+      run: gcc -o stui_img stui_img.c -lm
+      run: ./stui_img
