@@ -54,6 +54,7 @@ void stui_clear(void);
 #define STUI_TERM_FLAG_ECHO    (1 << 0)
 // Instant or non-canonical mode
 #define STUI_TERM_FLAG_INSTANT (1 << 1)
+#define STUI_TERM_FLAG_SIGNALS (1 << 2)
 typedef uint8_t stui_term_flag_t;
 
 void stui_term_get_size(size_t *w, size_t *h);
@@ -71,6 +72,12 @@ static void stui_term_enable_instant(void) {
 }
 static void stui_term_disable_instant(void) {
     stui_term_set_flags(stui_term_get_flags() & ~STUI_TERM_FLAG_INSTANT);
+}
+static void stui_term_enable_signals(void) {
+    stui_term_set_flags(stui_term_get_flags() & ~STUI_TERM_FLAG_SIGNALS);
+}
+static void stui_term_disable_signals(void) {
+    stui_term_set_flags(stui_term_get_flags() | STUI_TERM_FLAG_SIGNALS);
 }
 
 // UI thingies
@@ -360,9 +367,11 @@ void stui_term_set_flags(stui_term_flag_t flags) {
     // Assume Unix platform
     struct termios term;
     tcgetattr(STDIN_FILENO, &term);
-    term.c_lflag &= ~(ECHO | ICANON);
+    term.c_lflag &= ~(ECHO | ICANON | ISIG);
     if(flags & STUI_TERM_FLAG_ECHO) term.c_lflag |= ECHO;
     if(!(flags & STUI_TERM_FLAG_INSTANT)) term.c_lflag |= ICANON;
+    if(!(flags & STUI_TERM_FLAG_SIGNALS)) term.c_lflag |= ISIG;
+    if(!(flags & STUI_TERM_FLAG_SIGNALS)) term.c_iflag &= ~(IXON | IXOFF | IXANY);
     tcsetattr(STDIN_FILENO, TCSANOW, &term);
 #endif
 }
