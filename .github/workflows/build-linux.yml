@@ -1,6 +1,4 @@
 name: Test Samples
-
-name: Test samples
 on: [push pull_requests]
 jobs:
   test-emoji:
