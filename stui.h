@@ -54,7 +54,10 @@ void stui_clear(void);
 #define STUI_TERM_FLAG_ECHO    (1 << 0)
 // Instant or non-canonical mode
 #define STUI_TERM_FLAG_INSTANT (1 << 1)
+// Enable signals when on
 #define STUI_TERM_FLAG_SIGNALS (1 << 2)
+// Enable SFC (Ctrl+S) when on
+#define STUI_TERM_FLAG_SFC     (1 << 3)
 typedef uint8_t stui_term_flag_t;
 
 void stui_term_get_size(size_t *w, size_t *h);
@@ -74,12 +77,17 @@ static void stui_term_disable_instant(void) {
     stui_term_set_flags(stui_term_get_flags() & ~STUI_TERM_FLAG_INSTANT);
 }
 static void stui_term_enable_signals(void) {
-    stui_term_set_flags(stui_term_get_flags() & ~STUI_TERM_FLAG_SIGNALS);
-}
-static void stui_term_disable_signals(void) {
     stui_term_set_flags(stui_term_get_flags() | STUI_TERM_FLAG_SIGNALS);
 }
-
+static void stui_term_disable_signals(void) {
+    stui_term_set_flags(stui_term_get_flags() & ~STUI_TERM_FLAG_SIGNALS);
+}
+static void stui_term_enable_signals_and_sfc(void) {
+    stui_term_set_flags(stui_term_get_flags() | (STUI_TERM_FLAG_SIGNALS | STUI_TERM_FLAG_SFC));
+}
+static void stui_term_disable_signals_and_sfc(void) {
+    stui_term_set_flags(stui_term_get_flags() & ~(STUI_TERM_FLAG_SIGNALS | STUI_TERM_FLAG_SFC));
+}
 // UI thingies
 void stui_window_border(size_t x, size_t y, size_t w, size_t h, int tb, int lr, int corner);
 
@@ -342,6 +350,8 @@ stui_term_flag_t stui_term_get_flags(void) {
     tcgetattr(STDIN_FILENO, &term);
     if(term.c_lflag & ECHO)      flags |= STUI_TERM_FLAG_ECHO;
     if(!(term.c_lflag & ICANON)) flags |= STUI_TERM_FLAG_INSTANT;
+    if(term.c_lflag & ISIG)      flags |= STUI_TERM_FLAG_SIGNALS;
+    if(term.c_iflag & (IXON))    flags |= STUI_TERM_FLAG_SFC;
 #endif
     return flags;
 }
@@ -368,10 +378,11 @@ void stui_term_set_flags(stui_term_flag_t flags) {
     struct termios term;
     tcgetattr(STDIN_FILENO, &term);
     term.c_lflag &= ~(ECHO | ICANON | ISIG);
+    term.c_iflag &= ~(IXON);
     if(flags & STUI_TERM_FLAG_ECHO) term.c_lflag |= ECHO;
     if(!(flags & STUI_TERM_FLAG_INSTANT)) term.c_lflag |= ICANON;
-    if(!(flags & STUI_TERM_FLAG_SIGNALS)) term.c_lflag |= ISIG;
-    if(!(flags & STUI_TERM_FLAG_SIGNALS)) term.c_iflag &= ~(IXON | IXOFF | IXANY);
+    if(flags & STUI_TERM_FLAG_SIGNALS)    term.c_lflag |= ISIG;
+    if(flags & STUI_TERM_FLAG_SFC)        term.c_iflag |= (IXON);
     tcsetattr(STDIN_FILENO, TCSANOW, &term);
 #endif
 }
