@@ -1,5 +1,5 @@
 name: Test Samples
-on: [push, pull_requests]
+on: [push, pull_request]
 jobs:
   test-emoji:
     runs-on: ubuntu-latest
