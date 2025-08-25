@@ -4,21 +4,22 @@ jobs:
   test-emoji:
     runs-on: ubuntu-latest
     steps:
-      run: sudo apt-get install -y build-essentials
-      run: gcc -o emoji samples/emoji.c
-      run: ./emoji
+      - uses: actions/checkout@v2
+      - run: gcc -o emoji samples/emoji.c
+      - run: ./emoji
 
   test-mango:
     runs-on: ubuntu-latest
     steps:
-      run: sudo apt-get install -y build-essentials
-      run: gcc -o mango samples/mango.c
-      run: ./mango
+      - uses: actions/checkout@v2
+      - run: gcc -o mango samples/mango.c
+      - run: ./mango
 
   test-stui_img:
     runs-on: ubuntu-latest
     steps:
-      run: sudo apt-get install -y build-essentials
-      run: cd samples/stui_img
-      run: gcc -o stui_img stui_img.c -lm
-      run: ./stui_img
+      - uses: actions/checkout@v2
+      - working-directory: samples/stui_img
+        run: gcc -o stui_img stui_img.c -lm
+      - working-directory: samples/stui_img
+        run: ./stui_img
